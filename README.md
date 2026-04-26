@@ -127,6 +127,7 @@ task-app/
 | `id` | uuid | PK |
 | `title` | text | required |
 | `description` | text | optional |
+| `once_date` | date | optional; set for date-specific tasks |
 | `is_active` | boolean | default `true` |
 | `position` | integer | controls sort order |
 | `created_at` | timestamptz | auto |
@@ -149,5 +150,5 @@ task-app/
 
 - **No UTC date bugs** — all dates are derived from the browser's local timezone via `getLocalDateString()`, never from UTC.
 - **Upsert pattern** — toggling a task does `upsert` on `(task_id, completion_date)` so you can freely change status throughout the day.
-- **Daily repeat** — completions are stored per-date, so each new day every task starts fresh as "Pending".
-- **No auth** — this is a personal single-user app; the Supabase anon key with public access is intentional.
+- **Daily repeat** — recurring tasks appear every day; date-specific tasks use `tasks.once_date`.
+- **Simple account isolation** — username/PIN sessions are resolved through RPC functions, and task queries are filtered by the signed-in account.

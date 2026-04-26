@@ -3,6 +3,7 @@ export interface Task {
   user_id: string;
   title: string;
   description: string | null;
+  once_date: string | null;
   is_active: boolean;
   position: number;
   created_at: string;

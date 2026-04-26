@@ -8,7 +8,7 @@ export type OfflineOperation =
       id: string;
       type: "create_task";
       clientId: string;
-      data: Pick<Task, "title" | "description" | "position">;
+      data: Pick<Task, "title" | "description" | "position" | "once_date">;
     }
   | {
       id: string;
@@ -135,7 +135,7 @@ export function replaceTaskId(oldId: string, task: Task) {
   });
 }
 
-export function makeLocalTask(data: Pick<Task, "title" | "description" | "position">): Task {
+export function makeLocalTask(data: Pick<Task, "title" | "description" | "position" | "once_date">): Task {
   const user = getStoredUser();
   const timestamp = now();
   return {
@@ -143,6 +143,7 @@ export function makeLocalTask(data: Pick<Task, "title" | "description" | "positi
     user_id: user?.id ?? "",
     title: data.title,
     description: data.description,
+    once_date: data.once_date,
     is_active: true,
     position: data.position,
     created_at: timestamp,

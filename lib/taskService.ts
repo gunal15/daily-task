@@ -39,13 +39,18 @@ async function rpcGetTasks(activeOnly: boolean): Promise<Task[]> {
   return data ?? [];
 }
 
-async function rpcCreateTask(task: Pick<Task, "title" | "description" | "position">): Promise<Task> {
+function onceDateForTask(task: Task, onceMap: Record<string, string>) {
+  return task.once_date ?? onceMap[task.id] ?? null;
+}
+
+async function rpcCreateTask(task: Pick<Task, "title" | "description" | "position" | "once_date">): Promise<Task> {
   const { data, error } = await supabase
     .rpc("app_create_task", {
       p_session_token: requireSessionToken(),
       p_title: task.title,
       p_description: task.description,
       p_position: task.position,
+      p_once_date: task.once_date,
     })
     .single<Task>();
   if (error) throw error;
@@ -65,6 +70,22 @@ async function rpcUpdateTask(
     .single<Task>();
   if (error) throw error;
   return data;
+}
+
+async function syncLocalOnceDates(tasks: Task[]): Promise<Task[]> {
+  const onceMap = getOnceTaskMap();
+  const updatedTasks = await Promise.all(tasks.map(async (task) => {
+    const localOnceDate = onceMap[task.id];
+    if (!localOnceDate || task.once_date === localOnceDate) return task;
+
+    try {
+      return await rpcUpdateTask(task.id, { once_date: localOnceDate });
+    } catch {
+      return task;
+    }
+  }));
+
+  return updatedTasks;
 }
 
 async function rpcDeleteTask(id: string): Promise<void> {
@@ -167,7 +188,7 @@ export async function syncOfflineQueue() {
 export async function getTasks(): Promise<Task[]> {
   try {
     await syncOfflineQueue();
-    const tasks = await rpcGetTasks(false);
+    const tasks = await syncLocalOnceDates(await rpcGetTasks(false));
     cacheTasks(tasks);
     return sortTasks(tasks);
   } catch (error) {
@@ -179,7 +200,7 @@ export async function getTasks(): Promise<Task[]> {
 export async function getActiveTasks(): Promise<Task[]> {
   try {
     await syncOfflineQueue();
-    const tasks = await rpcGetTasks(true);
+    const tasks = await syncLocalOnceDates(await rpcGetTasks(true));
     const state = readOfflineState();
     const inactive = state.tasks.filter((t) => !t.is_active);
     cacheTasks(sortTasks([...inactive, ...tasks]));
@@ -191,7 +212,7 @@ export async function getActiveTasks(): Promise<Task[]> {
 }
 
 export async function createTask(
-  task: Pick<Task, "title" | "description" | "position">
+  task: Pick<Task, "title" | "description" | "position" | "once_date">
 ): Promise<Task> {
   try {
     await syncOfflineQueue();
@@ -311,7 +332,7 @@ export async function getTasksWithCompletions(
   const onceMap = getOnceTaskMap();
   // Recurring tasks appear every day; once tasks appear only on their target date.
   const tasksForDate = activeTasks.filter((task) => {
-    const onceDate = onceMap[task.id];
+    const onceDate = onceDateForTask(task, onceMap);
     return onceDate ? onceDate === date : true;
   });
 
@@ -350,14 +371,14 @@ export async function getHistorySummaries(
   ]);
 
   const onceMap = getOnceTaskMap();
-  const recurringCount = activeTasks.filter((t) => !onceMap[t.id]).length;
-  const onceTasks      = activeTasks.filter((t) => !!onceMap[t.id]);
+  const recurringCount = activeTasks.filter((t) => !onceDateForTask(t, onceMap)).length;
+  const onceTasks      = activeTasks.filter((t) => !!onceDateForTask(t, onceMap));
 
   const summaryMap = new Map<string, { total: number; completed: number }>();
   for (const date of dates) {
     const dateCompletions = completions.filter((c) => c.completion_date === date);
     const completed  = dateCompletions.filter((c) => c.is_completed).length;
-    const onceForDate = onceTasks.filter((t) => onceMap[t.id] === date).length;
+    const onceForDate = onceTasks.filter((t) => onceDateForTask(t, onceMap) === date).length;
     summaryMap.set(date, { total: recurringCount + onceForDate, completed });
   }
   return summaryMap;
@@ -373,7 +394,7 @@ export async function calculateStreaks(
 ): Promise<StreakResult> {
   const activeTasks = await getActiveTasks();
   const onceMap = getOnceTaskMap();
-  const recurringTasks = activeTasks.filter((t) => !onceMap[t.id]);
+  const recurringTasks = activeTasks.filter((t) => !onceDateForTask(t, onceMap));
   if (recurringTasks.length === 0) return { currentStreak: 0, bestStreak: 0 };
 
   const dates: string[] = [];
@@ -421,10 +442,13 @@ export async function getCompletionPercentageForDates(
     getActiveTasks(),
   ]);
   const onceMap = getOnceTaskMap();
-  const recurringCount = activeTasks.filter((t) => !onceMap[t.id]).length;
-  const onceTasks      = activeTasks.filter((t) => !!onceMap[t.id]);
+  const recurringCount = activeTasks.filter((t) => !onceDateForTask(t, onceMap)).length;
+  const onceTasks      = activeTasks.filter((t) => !!onceDateForTask(t, onceMap));
   const totalPossible  = recurringCount * dates.length
-    + onceTasks.filter((t) => dates.includes(onceMap[t.id])).length;
+    + onceTasks.filter((t) => {
+      const onceDate = onceDateForTask(t, onceMap);
+      return onceDate ? dates.includes(onceDate) : false;
+    }).length;
   if (totalPossible === 0) return 0;
   const totalCompleted = completions.filter((c) => c.is_completed).length;
   return Math.round((totalCompleted / totalPossible) * 100);

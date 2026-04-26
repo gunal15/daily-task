@@ -25,6 +25,7 @@ create table if not exists tasks (
   user_id     uuid not null references app_users(id) on delete cascade,
   title       text not null,
   description text,
+  once_date   date,
   is_active   boolean not null default true,
   position    integer not null default 0,
   created_at  timestamptz not null default now(),
@@ -47,12 +48,19 @@ create table if not exists task_completions (
 alter table tasks
   add column if not exists user_id uuid references app_users(id) on delete cascade;
 
+alter table tasks
+  add column if not exists once_date date;
+
 alter table task_completions
   add column if not exists user_id uuid references app_users(id) on delete cascade;
 
 -- Indexes for common query patterns
 create index if not exists idx_tasks_user_active
   on tasks(user_id, is_active, position, created_at);
+
+create index if not exists idx_tasks_user_once_date
+  on tasks(user_id, once_date)
+  where once_date is not null;
 
 create index if not exists idx_completions_user_date
   on task_completions(user_id, completion_date);
@@ -190,7 +198,8 @@ create or replace function app_create_task(
   p_session_token text,
   p_title text,
   p_description text,
-  p_position integer
+  p_position integer,
+  p_once_date date default null
 )
 returns tasks
 language plpgsql
@@ -200,8 +209,8 @@ as $$
 declare
   v_task tasks;
 begin
-  insert into tasks (user_id, title, description, position, is_active)
-  values (session_user_id(p_session_token), trim(p_title), p_description, p_position, true)
+  insert into tasks (user_id, title, description, position, once_date, is_active)
+  values (session_user_id(p_session_token), trim(p_title), p_description, p_position, p_once_date, true)
   returning * into v_task;
 
   return v_task;
@@ -226,6 +235,7 @@ begin
      set title = case when p_updates ? 'title' then trim(p_updates->>'title') else title end,
          description = case when p_updates ? 'description' then p_updates->>'description' else description end,
          position = case when p_updates ? 'position' then (p_updates->>'position')::integer else position end,
+         once_date = case when p_updates ? 'once_date' then nullif(p_updates->>'once_date', '')::date else once_date end,
          is_active = case when p_updates ? 'is_active' then (p_updates->>'is_active')::boolean else is_active end,
          updated_at = now()
    where id = p_task_id

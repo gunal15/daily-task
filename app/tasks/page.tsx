@@ -44,10 +44,12 @@ export default function TasksPage() {
   const sorted = (arr: Task[]) =>
     [...arr].sort((a, b) => a.position - b.position || a.created_at.localeCompare(b.created_at));
 
-  const recurringTasks  = tasks.filter((t) => !onceMap[t.id]);
+  const taskOnceDate = (task: Task) => task.once_date ?? onceMap[task.id] ?? null;
+
+  const recurringTasks  = tasks.filter((t) => !taskOnceDate(t));
   const onceTasks       = tasks
-    .filter((t) => !!onceMap[t.id])
-    .sort((a, b) => (onceMap[a.id] ?? "").localeCompare(onceMap[b.id] ?? ""));
+    .filter((t) => !!taskOnceDate(t))
+    .sort((a, b) => (taskOnceDate(a) ?? "").localeCompare(taskOnceDate(b) ?? ""));
 
   const activeRecurring = sorted(recurringTasks.filter((t) => t.is_active));
   const pausedRecurring = sorted(recurringTasks.filter((t) => !t.is_active));
@@ -272,7 +274,7 @@ export default function TasksPage() {
                 <p style={sectionHeader}>Scheduled</p>
                 <div style={sectionCard}>
                   {onceTasks.map((task, idx) => {
-                    const date  = onceMap[task.id] ?? "";
+                    const date  = taskOnceDate(task) ?? "";
                     const label = onceDateLabel(date);
                     return (
                       <div key={task.id} style={idx < onceTasks.length - 1 ? rowSep : {}}>

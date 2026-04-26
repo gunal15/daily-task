@@ -38,7 +38,12 @@ export default function AddTaskPage() {
   }, []);
 
   async function handleSave(data: { title: string; description: string | null; position: number; mode: "recurring" | "once"; onceDate: string }) {
-    const task = await createTask({ title: data.title, description: data.description, position: data.position });
+    const task = await createTask({
+      title: data.title,
+      description: data.description,
+      position: data.position,
+      once_date: data.mode === "once" ? data.onceDate : null,
+    });
     if (data.mode === "once") {
       setOnceTaskDate(task.id, data.onceDate);
     }
