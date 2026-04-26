@@ -1,4 +1,4 @@
-const CACHE_NAME = "daily-tasks-v1";
+const CACHE_NAME = "daily-tasks-v2";
 const APP_SHELL = [
   "/",
   "/signin",

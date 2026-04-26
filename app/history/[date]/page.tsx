@@ -94,7 +94,7 @@ export default function HistoryDatePage() {
         {/* Back row */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px 2px" }}>
           <button
-            onClick={() => router.back()}
+            onClick={() => router.push("/history")}
             className="press"
             style={{ display: "flex", alignItems: "center", gap: "2px", color: C.blue, cursor: "pointer" }}
           >
