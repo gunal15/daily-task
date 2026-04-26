@@ -2,23 +2,29 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { getTasks, createTask, updateTask, deleteTask } from "@/lib/taskService";
+import { getTasks, updateTask, deleteTask } from "@/lib/taskService";
+import { getOnceTaskMap } from "@/lib/onceTaskStore";
 import TaskForm from "@/components/TaskForm";
 import Toast from "@/components/Toast";
 import { Task } from "@/types/task";
 import { Plus, ChevronUp, ChevronDown, LogOut } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
 import { C, R, T, sectionCard, sectionHeader, rowSep } from "@/lib/iosTokens";
+import { isToday, formatShortDate } from "@/lib/dateUtils";
+
+type Tab = "recurring" | "date-specific";
 
 export default function TasksPage() {
   const router = useRouter();
   const { signOut, user } = useAuth();
   const [tasks,         setTasks]         = useState<Task[]>([]);
   const [loading,       setLoading]       = useState(true);
+  const [activeTab,     setActiveTab]     = useState<Tab>("recurring");
   const [showForm,      setShowForm]      = useState(false);
   const [editTask,      setEditTask]      = useState<Task | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [toast,         setToast]         = useState<{ message: string; type: "success" | "error" } | null>(null);
+  const [onceMap,       setOnceMap]       = useState<Record<string, string>>({});
 
   function showToast(msg: string, type: "success" | "error") {
     setToast({ message: msg, type });
@@ -26,8 +32,10 @@ export default function TasksPage() {
   }
 
   const load = useCallback(async () => {
-    try   { setTasks(await getTasks()); }
-    catch { showToast("Failed to load tasks", "error"); }
+    try {
+      setTasks(await getTasks());
+      setOnceMap(getOnceTaskMap());
+    } catch { showToast("Failed to load tasks", "error"); }
     finally { setLoading(false); }
   }, []);
 
@@ -36,18 +44,21 @@ export default function TasksPage() {
   const sorted = (arr: Task[]) =>
     [...arr].sort((a, b) => a.position - b.position || a.created_at.localeCompare(b.created_at));
 
-  const active   = sorted(tasks.filter((t) => t.is_active));
-  const inactive = sorted(tasks.filter((t) => !t.is_active));
+  const recurringTasks  = tasks.filter((t) => !onceMap[t.id]);
+  const onceTasks       = tasks
+    .filter((t) => !!onceMap[t.id])
+    .sort((a, b) => (onceMap[a.id] ?? "").localeCompare(onceMap[b.id] ?? ""));
 
-  async function handleSave(data: { title: string; description: string | null; position: number }) {
+  const activeRecurring = sorted(recurringTasks.filter((t) => t.is_active));
+  const pausedRecurring = sorted(recurringTasks.filter((t) => !t.is_active));
+
+  const nextPos = tasks.length > 0 ? Math.max(...tasks.map((t) => t.position)) + 1 : 0;
+
+  async function handleSave(data: { title: string; description: string | null; position: number; mode: "recurring" | "once"; onceDate: string }) {
     if (editTask) {
-      const u = await updateTask(editTask.id, data);
-      setTasks((p) => p.map((t) => t.id === editTask.id ? u : t));
+      const u = await updateTask(editTask.id, { title: data.title, description: data.description, position: data.position });
+      setTasks((p) => p.map((t) => (t.id === editTask.id ? u : t)));
       showToast("Task updated", "success");
-    } else {
-      const newTask = await createTask(data);
-      setTasks((p) => [...p, newTask]);
-      showToast("Task added", "success");
     }
     setShowForm(false);
     setEditTask(null);
@@ -57,6 +68,7 @@ export default function TasksPage() {
     try {
       await deleteTask(id);
       setTasks((p) => p.filter((t) => t.id !== id));
+      setOnceMap(getOnceTaskMap());
       setDeleteConfirm(null);
       showToast("Task deleted", "success");
     } catch { showToast("Failed to delete", "error"); }
@@ -65,7 +77,7 @@ export default function TasksPage() {
   async function handleToggleActive(task: Task) {
     try {
       const u = await updateTask(task.id, { is_active: !task.is_active });
-      setTasks((p) => p.map((t) => t.id === task.id ? u : t));
+      setTasks((p) => p.map((t) => (t.id === task.id ? u : t)));
       showToast(u.is_active ? "Task activated" : "Task paused", "success");
     } catch { showToast("Failed to update", "error"); }
   }
@@ -82,9 +94,14 @@ export default function TasksPage() {
     } catch { showToast("Failed to reorder", "error"); }
   }
 
-  const nextPos = tasks.length > 0 ? Math.max(...tasks.map((t) => t.position)) + 1 : 0;
+  function onceDateLabel(date: string): { text: string; color: string } {
+    const today = new Date().toISOString().slice(0, 10);
+    if (date === today)  return { text: "Today",    color: C.blue   };
+    if (date > today)    return { text: formatShortDate(date), color: C.label2  };
+    return                      { text: formatShortDate(date), color: C.label3  };
+  }
 
-  function Section({ title, items, reorderable }: { title: string; items: Task[]; reorderable: boolean }) {
+  function RecurringSection({ title, items, reorderable }: { title: string; items: Task[]; reorderable: boolean }) {
     if (!items.length) return null;
     return (
       <div>
@@ -92,9 +109,7 @@ export default function TasksPage() {
         <div style={sectionCard}>
           {items.map((task, idx) => (
             <div key={task.id} style={idx < items.length - 1 ? rowSep : {}}>
-              {/* Row */}
               <div style={{ display: "flex", alignItems: "center", gap: "4px", padding: "0 12px", minHeight: "54px" }}>
-                {/* Reorder buttons */}
                 {reorderable && (
                   <div style={{ display: "flex", flexDirection: "column", gap: "2px", marginRight: "2px" }}>
                     <button
@@ -113,35 +128,20 @@ export default function TasksPage() {
                     </button>
                   </div>
                 )}
-
-                {/* Text */}
                 <div style={{ flex: 1, minWidth: 0, padding: "10px 0" }}>
-                  <p style={{ ...T.body, color: task.is_active ? C.label : C.label3, margin: 0, fontWeight: 500 }}>
-                    {task.title}
-                  </p>
+                  <p style={{ ...T.body, color: task.is_active ? C.label : C.label3, margin: 0, fontWeight: 500 }}>{task.title}</p>
                   {task.description && (
                     <p style={{ ...T.subhead, color: C.label2, margin: 0, marginTop: "2px" }}>{task.description}</p>
                   )}
                 </div>
-
-                {/* Action buttons — iOS text-style controls */}
                 <div style={{ display: "flex", alignItems: "center", gap: "14px", flexShrink: 0 }}>
-                  <button
-                    onClick={() => handleToggleActive(task)}
-                    style={{ ...T.subhead, color: task.is_active ? C.orange : C.green, cursor: "pointer" }}
-                  >
+                  <button onClick={() => handleToggleActive(task)} style={{ ...T.subhead, color: task.is_active ? C.orange : C.green, cursor: "pointer" }}>
                     {task.is_active ? "Pause" : "Activate"}
                   </button>
-                  <button
-                    onClick={() => { setEditTask(task); setShowForm(true); }}
-                    style={{ ...T.subhead, color: C.blue, cursor: "pointer" }}
-                  >
+                  <button onClick={() => { setEditTask(task); setShowForm(true); }} style={{ ...T.subhead, color: C.blue, cursor: "pointer" }}>
                     Edit
                   </button>
-                  <button
-                    onClick={() => setDeleteConfirm(task.id)}
-                    style={{ ...T.subhead, color: C.red, cursor: "pointer" }}
-                  >
+                  <button onClick={() => setDeleteConfirm(task.id)} style={{ ...T.subhead, color: C.red, cursor: "pointer" }}>
                     Delete
                   </button>
                 </div>
@@ -156,59 +156,78 @@ export default function TasksPage() {
   return (
     <div style={{ minHeight: "100dvh", backgroundColor: C.bg2, paddingBottom: "83px" }}>
 
-      {/* Navigation Bar */}
-      <div
-        style={{
-          position:             "sticky",
-          top:                  0,
-          zIndex:               10,
-          backgroundColor:      C.navBg,
-          backdropFilter:       "saturate(180%) blur(20px)",
-          WebkitBackdropFilter: "saturate(180%) blur(20px)",
-          padding:              "12px 20px 14px",
-          borderBottom:         `0.5px solid ${C.sep}`,
-          display:              "flex",
-          alignItems:           "flex-end",
-          justifyContent:       "space-between",
-        }}
-      >
-        <div>
-          <p style={{ ...T.caption2, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: C.blue, margin: 0 }}>
-            {user?.username ?? "Manage"}
-          </p>
-          <h1 style={{ ...T.largeTitle, color: C.label, margin: 0, marginTop: "2px" }}>Tasks</h1>
+      {/* ── Navigation Bar ── */}
+      <div style={{
+        position: "sticky", top: 0, zIndex: 10,
+        backgroundColor: C.navBg,
+        backdropFilter: "saturate(180%) blur(20px)",
+        WebkitBackdropFilter: "saturate(180%) blur(20px)",
+        borderBottom: `0.5px solid ${C.sep}`,
+      }}>
+        {/* Title row */}
+        <div style={{
+          padding: "12px 20px 8px",
+          display: "flex", alignItems: "flex-end", justifyContent: "space-between",
+        }}>
+          <div>
+            <p style={{ ...T.caption2, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: C.blue, margin: 0 }}>
+              {user?.username ?? "Manage"}
+            </p>
+            <h1 style={{ ...T.largeTitle, color: C.label, margin: 0, marginTop: "2px" }}>Tasks</h1>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "4px" }}>
+            <button onClick={signOut} className="press" aria-label="Sign out" style={{ display: "flex", color: C.label3, cursor: "pointer", padding: "4px" }}>
+              <LogOut style={{ width: "20px", height: "20px" }} />
+            </button>
+            <button
+              onClick={() => router.push("/tasks/add")}
+              className="press"
+              style={{
+                width: "32px", height: "32px", borderRadius: "50%",
+                backgroundColor: C.blue,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                cursor: "pointer",
+              }}
+            >
+              <Plus style={{ width: "18px", height: "18px", color: "#fff", strokeWidth: 2.5 }} />
+            </button>
+          </div>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "4px" }}>
-          <button
-            onClick={signOut}
-            className="press"
-            aria-label="Sign out"
-            style={{ display: "flex", color: C.label3, cursor: "pointer", padding: "4px" }}
-          >
-            <LogOut style={{ width: "20px", height: "20px" }} />
-          </button>
-          {/* iOS nav bar trailing button */}
-          <button
-            onClick={() => router.push("/tasks/add")}
-            className="press"
-            style={{
-              width:           "32px",
-              height:          "32px",
-              borderRadius:    "50%",
-              backgroundColor: C.blue,
-              display:         "flex",
-              alignItems:      "center",
-              justifyContent:  "center",
-              cursor:          "pointer",
-            }}
-          >
-            <Plus style={{ width: "18px", height: "18px", color: "#fff", strokeWidth: 2.5 }} />
-          </button>
+
+        {/* Segmented control */}
+        <div style={{ padding: "0 16px 12px" }}>
+          <div style={{
+            display: "flex",
+            backgroundColor: "rgba(118,118,128,0.12)",
+            borderRadius: "9px",
+            padding: "2px",
+          }}>
+            {(["recurring", "date-specific"] as const).map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                style={{
+                  flex: 1, padding: "6px 0",
+                  borderRadius: "7px",
+                  backgroundColor: activeTab === tab ? C.bg : "transparent",
+                  boxShadow: activeTab === tab ? "0 1px 3px rgba(0,0,0,0.12)" : "none",
+                  ...T.subhead,
+                  fontWeight: activeTab === tab ? 600 : 400,
+                  color: activeTab === tab ? C.label : C.label2,
+                  cursor: "pointer",
+                  transition: "background-color 0.15s, box-shadow 0.15s",
+                }}
+              >
+                {tab === "recurring" ? "Recurring" : "Date Specific"}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
-      {/* Content */}
+      {/* ── Content ── */}
       <div style={{ paddingTop: "16px", display: "flex", flexDirection: "column", gap: "24px", paddingBottom: "8px" }}>
+
         {/* Skeleton */}
         {loading && (
           <div style={sectionCard}>
@@ -220,20 +239,70 @@ export default function TasksPage() {
           </div>
         )}
 
-        {!loading && tasks.length === 0 && (
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "80px 32px", textAlign: "center" }}>
-            <span style={{ fontSize: "64px", lineHeight: 1 }}>✏️</span>
-            <p style={{ ...T.title2, color: C.label, margin: "16px 0 0" }}>No tasks yet</p>
-            <p style={{ ...T.body,   color: C.label2, margin: "8px 0 0" }}>Tap + to add your first daily task.</p>
-          </div>
+        {/* ── Recurring tab ── */}
+        {!loading && activeTab === "recurring" && (
+          <>
+            {recurringTasks.length === 0 && (
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "80px 32px", textAlign: "center" }}>
+                <span style={{ fontSize: "64px", lineHeight: 1 }}>✏️</span>
+                <p style={{ ...T.title2, color: C.label, margin: "16px 0 0" }}>No recurring tasks</p>
+                <p style={{ ...T.body, color: C.label2, margin: "8px 0 0" }}>Tap + to add your first daily task.</p>
+              </div>
+            )}
+            <RecurringSection title={`Active (${activeRecurring.length})`}  items={activeRecurring} reorderable />
+            {pausedRecurring.length > 0 && (
+              <RecurringSection title={`Paused (${pausedRecurring.length})`} items={pausedRecurring} reorderable={false} />
+            )}
+          </>
         )}
 
-        {!loading && <Section title={`Active (${active.length})`}  items={active}   reorderable />}
-        {!loading && inactive.length > 0 && (
-          <Section title={`Paused (${inactive.length})`} items={inactive} reorderable={false} />
+        {/* ── Date Specific tab ── */}
+        {!loading && activeTab === "date-specific" && (
+          <>
+            {onceTasks.length === 0 ? (
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "80px 32px", textAlign: "center" }}>
+                <span style={{ fontSize: "64px", lineHeight: 1 }}>📅</span>
+                <p style={{ ...T.title2, color: C.label, margin: "16px 0 0" }}>No date-specific tasks</p>
+                <p style={{ ...T.body, color: C.label2, margin: "8px 0 0" }}>
+                  Tap + and choose <strong>Once</strong> to add a task for a specific day.
+                </p>
+              </div>
+            ) : (
+              <div>
+                <p style={sectionHeader}>Scheduled</p>
+                <div style={sectionCard}>
+                  {onceTasks.map((task, idx) => {
+                    const date  = onceMap[task.id] ?? "";
+                    const label = onceDateLabel(date);
+                    return (
+                      <div key={task.id} style={idx < onceTasks.length - 1 ? rowSep : {}}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "12px", padding: "12px 16px", minHeight: "54px" }}>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <p style={{ ...T.body, color: C.label, margin: 0, fontWeight: 500 }}>{task.title}</p>
+                            {task.description && (
+                              <p style={{ ...T.subhead, color: C.label2, margin: 0, marginTop: "2px" }}>{task.description}</p>
+                            )}
+                          </div>
+                          <div style={{ display: "flex", alignItems: "center", gap: "14px", flexShrink: 0 }}>
+                            <span style={{ ...T.subhead, color: label.color, fontWeight: isToday(date) ? 600 : 400 }}>
+                              {label.text}
+                            </span>
+                            <button onClick={() => setDeleteConfirm(task.id)} style={{ ...T.subhead, color: C.red, cursor: "pointer" }}>
+                              Delete
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
 
+      {/* Edit form (edit only — add goes to /tasks/add) */}
       {showForm && (
         <TaskForm
           task={editTask}
@@ -243,30 +312,19 @@ export default function TasksPage() {
         />
       )}
 
-      {/* iOS Alert — delete confirmation */}
+      {/* Delete confirmation alert */}
       {deleteConfirm && (
-        <div
-          style={{
-            position:        "fixed",
-            inset:           0,
-            zIndex:          200,
-            display:         "flex",
-            alignItems:      "center",
-            justifyContent:  "center",
-            padding:         "0 52px",
-            backgroundColor: "rgba(0,0,0,0.45)",
-          }}
-        >
-          <div
-            style={{
-              width:           "100%",
-              maxWidth:        "270px",
-              borderRadius:    `${R.lg}px`,
-              overflow:        "hidden",
-              backgroundColor: "rgba(242,242,247,0.98)",
-              backdropFilter:  "saturate(180%) blur(40px)",
-            }}
-          >
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 200,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          padding: "0 52px", backgroundColor: "rgba(0,0,0,0.45)",
+        }}>
+          <div style={{
+            width: "100%", maxWidth: "270px",
+            borderRadius: `${R.lg}px`, overflow: "hidden",
+            backgroundColor: "rgba(242,242,247,0.98)",
+            backdropFilter: "saturate(180%) blur(40px)",
+          }}>
             <div style={{ padding: "20px 16px 16px", textAlign: "center", borderBottom: `0.5px solid ${C.sep}` }}>
               <p style={{ ...T.headline, color: C.label, margin: 0 }}>Delete Task?</p>
               <p style={{ ...T.subhead, color: C.label2, margin: "6px 0 0" }}>

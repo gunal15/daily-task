@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import TaskForm from "@/components/TaskForm";
 import { createTask, getTasks } from "@/lib/taskService";
+import { setOnceTaskDate } from "@/lib/onceTaskStore";
 import { C } from "@/lib/iosTokens";
 
 export default function AddTaskPage() {
@@ -36,8 +37,11 @@ export default function AddTaskPage() {
     };
   }, []);
 
-  async function handleSave(data: { title: string; description: string | null; position: number }) {
-    await createTask(data);
+  async function handleSave(data: { title: string; description: string | null; position: number; mode: "recurring" | "once"; onceDate: string }) {
+    const task = await createTask({ title: data.title, description: data.description, position: data.position });
+    if (data.mode === "once") {
+      setOnceTaskDate(task.id, data.onceDate);
+    }
     router.push("/tasks");
   }
 

@@ -7,7 +7,8 @@ import { formatDisplayDate, isToday } from "@/lib/dateUtils";
 import TaskCard from "@/components/TaskCard";
 import ProgressCard from "@/components/ProgressCard";
 import { TaskWithCompletion } from "@/types/task";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { getLocalDateString } from "@/lib/dateUtils";
 import { C, R, T, sectionCard, sectionHeader } from "@/lib/iosTokens";
 
 export default function HistoryDatePage() {
@@ -17,8 +18,23 @@ export default function HistoryDatePage() {
   const [tasks,   setTasks]   = useState<TaskWithCompletion[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const today = getLocalDateString();
+
+  function shiftDate(dateStr: string, days: number): string {
+    const [y, m, d] = dateStr.split("-").map(Number);
+    const dt = new Date(y, m - 1, d);
+    dt.setDate(dt.getDate() + days);
+    return getLocalDateString(dt);
+  }
+
+  function navigate(days: number) {
+    router.push(`/history/${shiftDate(date, days)}`);
+  }
+
   useEffect(() => {
     if (!date) return;
+    setLoading(true);
+    setTasks([]);
     getTasksWithCompletions(date)
       .then(setTasks)
       .finally(() => setLoading(false));
@@ -41,22 +57,46 @@ export default function HistoryDatePage() {
         WebkitBackdropFilter: "saturate(180%) blur(20px)",
         borderBottom:         `0.5px solid ${C.sep}`,
       }}>
-        {/* Back row */}
-        <button
-          onClick={() => router.back()}
-          className="press"
-          style={{
-            display:        "flex",
-            alignItems:     "center",
-            gap:            "2px",
-            padding:        "10px 12px 2px",
-            color:          C.blue,
-            cursor:         "pointer",
-          }}
-        >
-          <ChevronLeft style={{ width: "22px", height: "22px" }} />
-          <span style={{ ...T.callout, color: C.blue }}>History</span>
-        </button>
+        {/* Back row + day arrows */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px 2px" }}>
+          <button
+            onClick={() => router.back()}
+            className="press"
+            style={{ display: "flex", alignItems: "center", gap: "2px", color: C.blue, cursor: "pointer" }}
+          >
+            <ChevronLeft style={{ width: "22px", height: "22px" }} />
+            <span style={{ ...T.callout, color: C.blue }}>History</span>
+          </button>
+
+          {/* Day navigation */}
+          <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+            <button
+              onClick={() => navigate(-1)}
+              style={{
+                display: "flex", alignItems: "center", justifyContent: "center",
+                width: "32px", height: "32px", borderRadius: "50%",
+                backgroundColor: "rgba(0,122,255,0.10)",
+                cursor: "pointer",
+                color: C.blue,
+              }}
+            >
+              <ChevronLeft style={{ width: "18px", height: "18px" }} />
+            </button>
+            <button
+              onClick={() => navigate(1)}
+              disabled={date >= today}
+              style={{
+                display: "flex", alignItems: "center", justifyContent: "center",
+                width: "32px", height: "32px", borderRadius: "50%",
+                backgroundColor: date >= today ? "transparent" : "rgba(0,122,255,0.10)",
+                cursor: date >= today ? "default" : "pointer",
+                color: date >= today ? C.label4 : C.blue,
+              }}
+            >
+              <ChevronRight style={{ width: "18px", height: "18px" }} />
+            </button>
+          </div>
+        </div>
 
         {/* Title */}
         <div style={{ padding: "4px 20px 14px" }}>

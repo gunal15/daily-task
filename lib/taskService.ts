@@ -1,4 +1,5 @@
 import { getSessionToken } from "./authService";
+import { getOnceTaskMap, removeOnceTask } from "./onceTaskStore";
 import {
   cacheCompletions,
   cacheTasks,
@@ -235,6 +236,7 @@ export async function updateTask(
 }
 
 export async function deleteTask(id: string): Promise<void> {
+  removeOnceTask(id);
   const state = readOfflineState();
   writeOfflineState({
     ...state,
@@ -301,11 +303,19 @@ export async function upsertCompletion(
 export async function getTasksWithCompletions(
   date: string
 ): Promise<TaskWithCompletion[]> {
-  const [tasks, completions] = await Promise.all([
+  const [activeTasks, completions] = await Promise.all([
     getActiveTasks(),
     getCompletionsForDate(date),
   ]);
-  return tasks.map((task) => {
+
+  const onceMap = getOnceTaskMap();
+  // Recurring tasks appear every day; once tasks appear only on their target date.
+  const tasksForDate = activeTasks.filter((task) => {
+    const onceDate = onceMap[task.id];
+    return onceDate ? onceDate === date : true;
+  });
+
+  return tasksForDate.map((task) => {
     const completion = completions.find((c) => c.task_id === task.id);
     return {
       ...task,
@@ -338,13 +348,17 @@ export async function getHistorySummaries(
     getCompletionsForDates(dates),
     getActiveTasks(),
   ]);
+
+  const onceMap = getOnceTaskMap();
+  const recurringCount = activeTasks.filter((t) => !onceMap[t.id]).length;
+  const onceTasks      = activeTasks.filter((t) => !!onceMap[t.id]);
+
   const summaryMap = new Map<string, { total: number; completed: number }>();
   for (const date of dates) {
-    const dateCompletions = completions.filter(
-      (c) => c.completion_date === date
-    );
-    const completed = dateCompletions.filter((c) => c.is_completed).length;
-    summaryMap.set(date, { total: activeTasks.length, completed });
+    const dateCompletions = completions.filter((c) => c.completion_date === date);
+    const completed  = dateCompletions.filter((c) => c.is_completed).length;
+    const onceForDate = onceTasks.filter((t) => onceMap[t.id] === date).length;
+    summaryMap.set(date, { total: recurringCount + onceForDate, completed });
   }
   return summaryMap;
 }
@@ -358,7 +372,9 @@ export async function calculateStreaks(
   lookbackDays = 365
 ): Promise<StreakResult> {
   const activeTasks = await getActiveTasks();
-  if (activeTasks.length === 0) return { currentStreak: 0, bestStreak: 0 };
+  const onceMap = getOnceTaskMap();
+  const recurringTasks = activeTasks.filter((t) => !onceMap[t.id]);
+  if (recurringTasks.length === 0) return { currentStreak: 0, bestStreak: 0 };
 
   const dates: string[] = [];
   for (let i = 0; i < lookbackDays; i++) {
@@ -381,7 +397,7 @@ export async function calculateStreaks(
     const dateCompletions = completions.filter(
       (c) => c.completion_date === date && c.is_completed
     );
-    const isDayComplete = dateCompletions.length >= activeTasks.length;
+    const isDayComplete = dateCompletions.length >= recurringTasks.length;
 
     if (isDayComplete) {
       tempStreak++;
@@ -404,8 +420,12 @@ export async function getCompletionPercentageForDates(
     getCompletionsForDates(dates),
     getActiveTasks(),
   ]);
-  if (activeTasks.length === 0) return 0;
-  const totalPossible = activeTasks.length * dates.length;
+  const onceMap = getOnceTaskMap();
+  const recurringCount = activeTasks.filter((t) => !onceMap[t.id]).length;
+  const onceTasks      = activeTasks.filter((t) => !!onceMap[t.id]);
+  const totalPossible  = recurringCount * dates.length
+    + onceTasks.filter((t) => dates.includes(onceMap[t.id])).length;
+  if (totalPossible === 0) return 0;
   const totalCompleted = completions.filter((c) => c.is_completed).length;
   return Math.round((totalCompleted / totalPossible) * 100);
 }

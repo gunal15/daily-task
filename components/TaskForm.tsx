@@ -4,11 +4,14 @@ import { useState, useEffect } from "react";
 import { X } from "lucide-react";
 import { Task } from "@/types/task";
 import { C, R, T } from "@/lib/iosTokens";
+import { getLocalDateString } from "@/lib/dateUtils";
+
+type Mode = "recurring" | "once";
 
 interface Props {
   task?: Task | null;
   defaultPosition?: number;
-  onSave: (data: { title: string; description: string | null; position: number }) => Promise<void>;
+  onSave: (data: { title: string; description: string | null; position: number; mode: Mode; onceDate: string }) => Promise<void>;
   onClose: () => void;
 }
 
@@ -25,6 +28,8 @@ export default function TaskForm({ task, defaultPosition = 0, onSave, onClose }:
   const [title,       setTitle]       = useState(task?.title       ?? "");
   const [description, setDescription] = useState(task?.description ?? "");
   const [position,    setPosition]    = useState(task?.position    ?? defaultPosition);
+  const [mode,        setMode]        = useState<Mode>("recurring");
+  const [onceDate,    setOnceDate]    = useState(getLocalDateString());
   const [saving,      setSaving]      = useState(false);
   const [error,       setError]       = useState("");
 
@@ -39,7 +44,7 @@ export default function TaskForm({ task, defaultPosition = 0, onSave, onClose }:
     setSaving(true);
     setError("");
     try {
-      await onSave({ title: title.trim(), description: description.trim() || null, position });
+      await onSave({ title: title.trim(), description: description.trim() || null, position, mode, onceDate });
     } catch {
       setError("Could not save — please try again.");
       setSaving(false);
@@ -165,6 +170,58 @@ export default function TaskForm({ task, defaultPosition = 0, onSave, onClose }:
               }}
             />
           </div>
+
+          {/* Recurrence — only when creating a new task */}
+          {!task && (
+            <>
+              <div style={{ borderRadius: `${R.lg}px`, overflow: "hidden", backgroundColor: C.bg, marginBottom: "10px" }}>
+                {(["recurring", "once"] as const).map((m, i) => (
+                  <div key={m}>
+                    {i > 0 && <div style={{ height: "0.5px", backgroundColor: C.sep, marginLeft: "16px" }} />}
+                    <div
+                      onClick={() => setMode(m)}
+                      style={{ display: "flex", alignItems: "center", padding: "0 16px", minHeight: "50px", cursor: "pointer" }}
+                    >
+                      <div style={{ flex: 1 }}>
+                        <p style={{ ...T.body, color: C.label, margin: 0 }}>
+                          {m === "recurring" ? "Recurring" : "Once"}
+                        </p>
+                        <p style={{ ...T.caption1, color: C.label2, margin: "1px 0 0" }}>
+                          {m === "recurring" ? "Appears every day" : "Only for a specific day"}
+                        </p>
+                      </div>
+                      <div style={{
+                        width: "22px", height: "22px", borderRadius: "50%", flexShrink: 0,
+                        border: `2px solid ${mode === m ? C.blue : C.sep}`,
+                        backgroundColor: mode === m ? C.blue : "transparent",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                      }}>
+                        {mode === m && <div style={{ width: "8px", height: "8px", borderRadius: "50%", backgroundColor: "#fff" }} />}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Date picker — visible only when "once" is selected */}
+              {mode === "once" && (
+                <div style={{ borderRadius: `${R.lg}px`, overflow: "hidden", backgroundColor: C.bg, marginBottom: "10px" }}>
+                  <div style={{ display: "flex", alignItems: "center", padding: "0 16px", minHeight: "44px" }}>
+                    <p style={{ ...T.body, color: C.label, flex: 1, margin: 0 }}>Date</p>
+                    <input
+                      type="date"
+                      value={onceDate}
+                      onChange={(e) => setOnceDate(e.target.value)}
+                      style={{
+                        ...T.body, color: C.blue,
+                        backgroundColor: "transparent", border: "none", outline: "none", cursor: "pointer",
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+            </>
+          )}
 
           {/* Position cell */}
           <div style={{ borderRadius: `${R.lg}px`, overflow: "hidden", backgroundColor: C.bg, marginBottom: "10px" }}>

@@ -80,3 +80,16 @@ export function getLastNDates(n: number): string[] {
   }
   return dates;
 }
+
+// Returns all 7 days (Sun–Sat) for a week relative to today.
+// weekOffset 0 = current week, -1 = last week, etc.
+export function getWeekDates(weekOffset: number = 0): string[] {
+  const today = new Date();
+  const sunday = new Date(today);
+  sunday.setDate(today.getDate() - today.getDay() + weekOffset * 7);
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(sunday);
+    d.setDate(sunday.getDate() + i);
+    return getLocalDateString(d);
+  });
+}
