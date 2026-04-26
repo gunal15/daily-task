@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import AppTopLogo from "@/components/AppTopLogo";
 import TaskForm from "@/components/TaskForm";
 import { createTask, getTasks } from "@/lib/taskService";
 import { setOnceTaskDate } from "@/lib/onceTaskStore";
@@ -52,6 +53,9 @@ export default function AddTaskPage() {
 
   return (
     <div style={{ minHeight: "100dvh", backgroundColor: C.bg2 }}>
+      <div style={{ position: "fixed", top: "14px", right: "20px", zIndex: 210 }}>
+        <AppTopLogo width={96} />
+      </div>
       {!loading && <TaskForm defaultPosition={defaultPosition} onSave={handleSave} onClose={close} />}
     </div>
   );

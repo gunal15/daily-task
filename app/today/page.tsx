@@ -6,6 +6,7 @@ import { getLocalDateString, formatDisplayDate } from "@/lib/dateUtils";
 import TaskCard from "@/components/TaskCard";
 import ProgressCard from "@/components/ProgressCard";
 import Toast from "@/components/Toast";
+import AppTopLogo from "@/components/AppTopLogo";
 import { TaskWithCompletion } from "@/types/task";
 import { C, R, T, sectionCard, sectionHeader } from "@/lib/iosTokens";
 
@@ -59,16 +60,20 @@ export default function TodayPage() {
           backgroundColor:       C.navBg,
           backdropFilter:        "saturate(180%) blur(20px)",
           WebkitBackdropFilter:  "saturate(180%) blur(20px)",
-          padding:               "12px 20px 14px",
           borderBottom:          `0.5px solid ${C.sep}`,
         }}
       >
-        <p style={{ ...T.caption2, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: C.blue, margin: 0 }}>
-          Today
-        </p>
-        <h1 style={{ ...T.largeTitle, color: C.label, margin: 0, marginTop: "2px" }}>
-          {formatDisplayDate(today)}
-        </h1>
+        <div style={{ padding: "10px 20px 12px", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "12px" }}>
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <p style={{ ...T.caption2, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: C.blue, margin: 0 }}>
+              Today
+            </p>
+            <h1 style={{ ...T.title1, fontSize: "26px", lineHeight: "32px", color: C.label, margin: 0, marginTop: "2px" }}>
+              {formatDisplayDate(today)}
+            </h1>
+          </div>
+          <AppTopLogo />
+        </div>
       </div>
 
       {/* ── Content ──────────────────────────────────────────────── */}

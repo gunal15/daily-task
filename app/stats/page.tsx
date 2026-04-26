@@ -5,6 +5,7 @@ import {
   calculateStreaks,
   getCompletionPercentageForDates,
 } from "@/lib/taskService";
+import AppTopLogo from "@/components/AppTopLogo";
 import { getCurrentWeekDates, getCurrentMonthDates } from "@/lib/dateUtils";
 import { Flame, Trophy, TrendingUp, Calendar } from "lucide-react";
 
@@ -96,13 +97,16 @@ export default function StatsPage() {
         className="sticky top-0 z-10 px-4 pt-safe pb-2"
         style={{ backgroundColor: "#F2F2F7" }}
       >
-        <div className="pt-3">
-          <p className="text-ios-caption1 font-semibold uppercase tracking-widest" style={{ color: "#007AFF" }}>
-            Overview
-          </p>
-          <h1 className="text-ios-largetitle mt-0.5" style={{ color: "#1C1C1E" }}>
-            Stats
-          </h1>
+        <div className="pt-2 flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-ios-caption1 font-semibold uppercase tracking-widest" style={{ color: "#007AFF" }}>
+              Overview
+            </p>
+            <h1 className="text-ios-largetitle mt-0.5" style={{ color: "#1C1C1E" }}>
+              Stats
+            </h1>
+          </div>
+          <AppTopLogo />
         </div>
       </div>
 

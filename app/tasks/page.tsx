@@ -169,15 +169,15 @@ export default function TasksPage() {
         {/* Title row */}
         <div style={{
           padding: "12px 20px 8px",
-          display: "flex", alignItems: "flex-end", justifyContent: "space-between",
+          display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "12px",
         }}>
-          <div>
+          <div style={{ minWidth: 0 }}>
             <p style={{ ...T.caption2, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: C.blue, margin: 0 }}>
               {user?.username ?? "Manage"}
             </p>
             <h1 style={{ ...T.largeTitle, color: C.label, margin: 0, marginTop: "2px" }}>Tasks</h1>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "4px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "12px", paddingTop: "4px", flexShrink: 0 }}>
             <button onClick={signOut} className="press" aria-label="Sign out" style={{ display: "flex", color: C.label3, cursor: "pointer", padding: "4px" }}>
               <LogOut style={{ width: "20px", height: "20px" }} />
             </button>

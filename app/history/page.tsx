@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import AppTopLogo from "@/components/AppTopLogo";
 import { getHistorySummaries } from "@/lib/taskService";
 import {
   getWeekDates,
@@ -126,29 +127,32 @@ export default function HistoryPage() {
         }}
       >
         {/* Title */}
-        <div style={{ padding: "12px 20px 0" }}>
-          <p
-            style={{
-              ...T.caption2,
-              fontWeight: 700,
-              textTransform: "uppercase",
-              letterSpacing: "0.12em",
-              color: C.blue,
-              margin: 0,
-            }}
-          >
-            Weekly View
-          </p>
-          <h1
-            style={{
-              ...T.largeTitle,
-              color: C.label,
-              margin: 0,
-              marginTop: "2px",
-            }}
-          >
-            History
-          </h1>
+        <div style={{ padding: "10px 20px 0", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "12px" }}>
+          <div style={{ minWidth: 0 }}>
+            <p
+              style={{
+                ...T.caption2,
+                fontWeight: 700,
+                textTransform: "uppercase",
+                letterSpacing: "0.12em",
+                color: C.blue,
+                margin: 0,
+              }}
+            >
+              Weekly View
+            </p>
+            <h1
+              style={{
+                ...T.largeTitle,
+                color: C.label,
+                margin: 0,
+                marginTop: "2px",
+              }}
+            >
+              History
+            </h1>
+          </div>
+          <AppTopLogo />
         </div>
 
         {/* Navigation: Today | < Month Year > */}

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
+import AppTopLogo from "@/components/AppTopLogo";
 import { getTasksWithCompletions } from "@/lib/taskService";
 import { formatDisplayDate, isToday } from "@/lib/dateUtils";
 import TaskCard from "@/components/TaskCard";
@@ -57,16 +58,8 @@ export default function HistoryDatePage() {
         WebkitBackdropFilter: "saturate(180%) blur(20px)",
         borderBottom:         `0.5px solid ${C.sep}`,
       }}>
-        {/* Back row + day arrows */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px 2px" }}>
-          <button
-            onClick={() => router.back()}
-            className="press"
-            style={{ display: "flex", alignItems: "center", gap: "2px", color: C.blue, cursor: "pointer" }}
-          >
-            <ChevronLeft style={{ width: "22px", height: "22px" }} />
-            <span style={{ ...T.callout, color: C.blue }}>History</span>
-          </button>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 20px 0" }}>
+          <AppTopLogo width={88} />
 
           {/* Day navigation */}
           <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
@@ -96,6 +89,18 @@ export default function HistoryDatePage() {
               <ChevronRight style={{ width: "18px", height: "18px" }} />
             </button>
           </div>
+        </div>
+
+        {/* Back row */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px 2px" }}>
+          <button
+            onClick={() => router.back()}
+            className="press"
+            style={{ display: "flex", alignItems: "center", gap: "2px", color: C.blue, cursor: "pointer" }}
+          >
+            <ChevronLeft style={{ width: "22px", height: "22px" }} />
+            <span style={{ ...T.callout, color: C.blue }}>History</span>
+          </button>
         </div>
 
         {/* Title */}

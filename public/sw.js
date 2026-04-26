@@ -7,7 +7,9 @@ const APP_SHELL = [
   "/history",
   "/stats",
   "/manifest.webmanifest",
-  "/icons/icon.svg"
+  "/manifest-dark.webmanifest",
+  "/icons/logo-light.png",
+  "/icons/logo-dark.png"
 ];
 
 self.addEventListener("install", (event) => {

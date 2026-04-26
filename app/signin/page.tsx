@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { LockKeyhole, UserRound } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
+import AppTopLogo from "@/components/AppTopLogo";
 import { C, R, T } from "@/lib/iosTokens";
 
 type Mode = "signin" | "register";
@@ -40,14 +41,17 @@ export default function SignInPage() {
   }
 
   return (
-    <div style={{ minHeight: "100dvh", backgroundColor: C.bg2, padding: "72px 20px 28px" }}>
-      <div style={{ marginBottom: "28px" }}>
-        <p style={{ ...T.caption2, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: C.blue, margin: 0 }}>
-          Daily Tasks
-        </p>
-        <h1 style={{ ...T.largeTitle, color: C.label, margin: "2px 0 0" }}>
-          {mode === "signin" ? "Sign In" : "Create User"}
-        </h1>
+    <div style={{ minHeight: "100dvh", backgroundColor: C.bg2, padding: "18px 20px 28px" }}>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "12px", marginBottom: "28px" }}>
+        <div style={{ minWidth: 0 }}>
+          <p style={{ ...T.caption2, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", color: C.blue, margin: 0 }}>
+            Daily Tasks
+          </p>
+          <h1 style={{ ...T.largeTitle, color: C.label, margin: "2px 0 0" }}>
+            {mode === "signin" ? "Sign In" : "Create User"}
+          </h1>
+        </div>
+        <AppTopLogo />
       </div>
 
       <div style={{ display: "flex", backgroundColor: "#E5E5EA", borderRadius: `${R.md}px`, padding: "2px", marginBottom: "18px" }}>

@@ -6,6 +6,15 @@ export const metadata: Metadata = {
   title: "Daily Tasks",
   description: "Personal daily task tracker",
   manifest: "/manifest.webmanifest",
+  icons: {
+    icon: [
+      { url: "/icons/logo-light.png", sizes: "1024x1024", type: "image/png", media: "(prefers-color-scheme: light)" },
+      { url: "/icons/logo-dark.png", sizes: "1024x1024", type: "image/png", media: "(prefers-color-scheme: dark)" },
+    ],
+    apple: [
+      { url: "/icons/logo-light.png", sizes: "1024x1024", type: "image/png" },
+    ],
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
